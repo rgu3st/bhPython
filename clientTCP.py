@@ -11,7 +11,7 @@ def main():
     client.connect((target_host, target_port))
 
     # send data:
-    client.send(b"Hello from the other side.\r\n\r\n")
+    client.send(b"SYN?\r\n")
     # client.send(b"GET / HTTP/1.1\r\nhttps://www.google.com/search?q=google+search+post+request\r\n\r\n ")
 
     # receive data:

@@ -28,6 +28,7 @@ def handle_client(client_socket):
     with client_socket as sock:
         request = sock.recv(4096)  # The book uses 1024, but I've seen larger chunks be more efficient these days.
         print(f"- Recieved: {request.decode('utf-8')}")
+        sock.send(b'ACK')
 
 
 if __name__ == "__main__":
