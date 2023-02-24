@@ -5,7 +5,7 @@ import subprocess
 import sys
 import textwrap
 import threading
-
+import rjg_common
 
 def execute(cmd: str) -> str:
     """Executes a command and returns the output as a string."""
@@ -30,13 +30,77 @@ class NotCat:
             self.send()
 
     def send(self):
-        pass
+        self.socket.connect((self.args.target, self.args.port))
+        if self.buffer:
+            self.socket.send(self.buffer)
 
+        try:
+            while True:
+                recv_len = 1
+                response = ''
+                while recv_len:  # If there's more data to receive
+                    data = self.socket.recv(rjg_common.RECV_LENGTH)
+                    recv_len = len(data)
+                    response += data.decode()
+                    if recv_len < rjg_common.RECV_LENGTH:  # All data sent. Done.
+                        break
+                    if response:
+                        print(response)
+                        buffer = input(rjg_common.PROMPT)
+                        buffer += '\n'
+                        self.socket.send(buffer.encode())
+        except KeyboardInterrupt:
+            print("User terminated (ctrl+c?)")
+            self.socket.close()
+            sys.exit()
 
     def listen(self):
-        pass
+        self.socket.bind((self.args.target, self.args.port))
+        self.socket.listen()
+
+        while True:
+            client_socket, _ = self.socket.accept()
+            client_thread = threading.Thread( target=self.handle, args=(client_socket,))
+            client_thread.start()
+
+    def handle(self, client_socket):
+        if self.args.execute:
+            output = execute(self.args.execute)
+            client_socket.send(output.encode())
+
+        elif self.args.upload:
+            file_buffer = b''
+            while True:
+                data = client_socket.recv(rjg_common.RECV_LENGTH)
+                if data:
+                    file_buffer += data
+                else:
+                    break  # No more data
+
+            with open(self.args.upload, 'wb') as f:  # Use the with...open method to automatically close when done.
+                f.write(file_buffer)
+            message = f'Saved file {self.args.upload}'
+            client_socket.send(message.encode())
+
+        elif self.args.command:
+            cmd_buffer = b''
+            while True:
+                try:
+                    client_socket.send(rjg_common.PROMPT.encode())
+                    while '\n' not in cmd_buffer.decode():  # Until the client user hits "enter":
+                        cmd_buffer += client_socket.recv(64)
+                    response = execute(cmd_buffer.decode())
+                    if response:
+                        client_socket.send(response.encode())
+                    cmd_buffer = b''
+                except Exception as e:
+                    print(f"Server killed with exception {e}")
+                    self.socket.close()
+                    sys.exit()
+
 
 def main():
+    print("Entering main.")
     parser = argparse.ArgumentParser(
         description='RJAG Net Tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -54,10 +118,10 @@ def main():
     )
     parser.add_argument('-c', '--command', action='store_true', help='command shell')
     parser.add_argument('-e', '--execute', help='execute specified command')
-    parser.add_argument('l', '--listen', action='store_true', help='listen')
-    parser.add_argument('p', '--port', type=int, default=5555, help='specified port')
-    parser.add_argument('t', '--target', default='192.168.1.203)', help='speicifed ip')  # Why this default?
-    parser.add_argument('u', '--upload', help='upload file')
+    parser.add_argument('-l', '--listen', action='store_true', help='listen')
+    parser.add_argument('-p', '--port', type=int, default=5555, help='specified port')
+    parser.add_argument('-t', '--target', default='192.168.1.203)', help='specified ip')  # Why this default?
+    parser.add_argument('-u', '--upload', help='upload file')
 
     args = parser.parse_args()
 
@@ -66,8 +130,9 @@ def main():
     else:
         buffer = sys.stdin.read()
 
-        nc = NotCat(args, buffer.encode())
-        nc.run()
+    print("??")
+    nc = NotCat(args, buffer.encode())
+    nc.run()
 
 
 if __name__ == "__main__":
