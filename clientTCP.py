@@ -1,6 +1,6 @@
 import socket
 
-target_host = "127.0.0.1"
+target_host = "10.0.2.255"
 target_port = 9998
 
 def main():

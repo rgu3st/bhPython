@@ -12,7 +12,7 @@ def execute(cmd: str) -> str:
     cmd = cmd.strip()
     if not cmd:
         return 'RJG Error'
-    output = subprocess.check_output(shlex.slpit(cmd), stderr=subprocess.STDOUT)
+    output = subprocess.check_output(shlex.split(cmd), stderr=subprocess.STDOUT)
     return output.decode()
 
 
@@ -130,7 +130,6 @@ def main():
     else:
         buffer = sys.stdin.read()
 
-    print("??")
     nc = NotCat(args, buffer.encode())
     nc.run()
 
